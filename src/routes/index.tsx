@@ -1,5 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ShieldCheck, ShieldAlert, Upload, Loader2, Download, Copy,
@@ -19,28 +17,41 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast, Toaster } from "sonner";
-import { runScan, type ScanReport, type Severity } from "@/lib/scan.functions";
 import { downloadMarkdown, severityBadgeClass, toMarkdown, type ReviewerEdit } from "@/lib/report-utils";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "OwlSec — OWASP AI Security Scanner" },
-      { name: "description", content: "Static triage scanner that maps AI system prompts, tool configs, and code against the OWASP LLM Top 10 (2025) with scored, defensible findings." },
-      { property: "og:title", content: "OwlSec — OWASP AI Security Scanner" },
-      { property: "og:description", content: "Upload a system prompt or agent config. Get a scored OWASP LLM Top 10 report in under 3 minutes." },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: "/" },
-      { property: "og:site_name", content: "OwlSec" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "OwlSec — OWASP AI Security Scanner" },
-      { name: "twitter:description", content: "Static triage scanner that maps AI system prompts, tool configs, and code against the OWASP LLM Top 10 (2025)." },
-      { name: "theme-color", content: "#E64C2E" },
-    ],
-    links: [{ rel: "canonical", href: "/" }],
-  }),
-  component: ScannerPage,
-});
+type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+type OwaspCategory =
+  | "LLM01" | "LLM02" | "LLM03" | "LLM04" | "LLM05"
+  | "LLM06" | "LLM07" | "LLM08" | "LLM09" | "LLM10";
+
+interface Finding {
+  id: string;
+  severity: Severity;
+  score: number;
+  category: OwaspCategory;
+  category_name: string;
+  title: string;
+  description_security: string;
+  description_plain: string;
+  evidence: string;
+  evidence_location: string;
+  remediation: string;
+}
+
+type CoverageStatus = "Assessed" | "Insufficient Input" | "Not Applicable";
+interface CoverageEntry { code: string; name: string; status: CoverageStatus; note?: string; }
+
+interface ScanReport {
+  scan_id: string;
+  timestamp: string;
+  artifact_hash: string;
+  inputs_provided: string[];
+  executive_summary: string;
+  aggregate: { highest: Severity; counts: Record<Severity, number> };
+  coverage: CoverageEntry[];
+  findings: Finding[];
+  ruleset_version: string;
+}
 
 type CodeFile = { name: string; content: string };
 type RecentScan = { id: string; timestamp: string; hash: string; highest: Severity; total: number };
@@ -71,7 +82,6 @@ const STAGES = [
 ] as const;
 
 export function ScannerPage() {
-  const scan = useServerFn(runScan);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [toolConfig, setToolConfig] = useState("");
   const [architecture, setArchitecture] = useState("");
@@ -127,7 +137,21 @@ export function ScannerPage() {
     setLoading(true); setStageIdx(0);
     const stageTimer = setInterval(() => { setStageIdx((i) => Math.min(i + 1, STAGES.length - 1)); }, 1400);
     try {
-      const result = await scan({ data: { system_prompt: systemPrompt, tool_config: toolConfig || undefined, architecture: architecture || undefined, code_files: codeFiles.length ? codeFiles : undefined } });
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_prompt: systemPrompt,
+          tool_config: toolConfig || undefined,
+          architecture: architecture || undefined,
+          code_files: codeFiles.length ? codeFiles : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      const result = await res.json();
       setReport(result); setEdits({});
       const entry: RecentScan = { id: result.scan_id, timestamp: result.timestamp, hash: result.artifact_hash.slice(0, 12), highest: result.aggregate.highest, total: result.findings.length };
       const nextRecent = [entry, ...recent.filter((r) => r.id !== entry.id)].slice(0, 5);
