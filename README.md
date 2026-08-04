@@ -10,13 +10,13 @@
 
 OwlSec analyzes AI application artifacts — **system prompts**, **tool/agent configs**, **architecture descriptions**, and **code files** — and returns a deterministic (`temperature: 0`) security report covering **all 10 OWASP LLM categories**:
 
-| Code | Category | Code | Category |
-|------|----------|------|----------|
-| LLM01 | Prompt Injection | LLM06 | Excessive Agency |
-| LLM02 | Sensitive Information Disclosure | LLM07 | System Prompt Leakage |
-| LLM03 | Supply Chain | LLM08 | Vector & Embedding Weaknesses |
-| LLM04 | Data & Model Poisoning | LLM09 | Misinformation |
-| LLM05 | Improper Output Handling | LLM10 | Unbounded Consumption |
+| Code  | Category                         | Code  | Category                      |
+| ----- | -------------------------------- | ----- | ----------------------------- |
+| LLM01 | Prompt Injection                 | LLM06 | Excessive Agency              |
+| LLM02 | Sensitive Information Disclosure | LLM07 | System Prompt Leakage         |
+| LLM03 | Supply Chain                     | LLM08 | Vector & Embedding Weaknesses |
+| LLM04 | Data & Model Poisoning           | LLM09 | Misinformation                |
+| LLM05 | Improper Output Handling         | LLM10 | Unbounded Consumption         |
 
 Every finding ships with **exact evidence, a severity score, and a remediation** — reviewable, editable, and exportable to Markdown.
 
@@ -62,4 +62,4 @@ MIT — use it, fork it, ship it.
 
 ---
 
-*Not a substitute for dynamic red-teaming or a professional penetration test. This is triage, not a guarantee.*
+_Not a substitute for dynamic red-teaming or a professional penetration test. This is triage, not a guarantee._

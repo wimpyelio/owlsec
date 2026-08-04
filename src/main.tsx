@@ -6,5 +6,5 @@ import "./styles.css";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ScannerPage />
-  </StrictMode>
+  </StrictMode>,
 );

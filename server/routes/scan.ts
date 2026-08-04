@@ -3,8 +3,7 @@ import { Request, Response } from "express";
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 export type OwaspCategory =
-  | "LLM01" | "LLM02" | "LLM03" | "LLM04" | "LLM05"
-  | "LLM06" | "LLM07" | "LLM08" | "LLM09" | "LLM10";
+  "LLM01" | "LLM02" | "LLM03" | "LLM04" | "LLM05" | "LLM06" | "LLM07" | "LLM08" | "LLM09" | "LLM10";
 
 export interface Finding {
   id: string;
@@ -21,7 +20,12 @@ export interface Finding {
 }
 
 export type CoverageStatus = "Assessed" | "Insufficient Input" | "Not Applicable";
-export interface CoverageEntry { code: string; name: string; status: CoverageStatus; note?: string; }
+export interface CoverageEntry {
+  code: string;
+  name: string;
+  status: CoverageStatus;
+  note?: string;
+}
 
 export interface ScanReport {
   scan_id: string;
@@ -46,14 +50,14 @@ export interface ScanInput {
 const log = {
   _line: (level: string, msg: string, ctx: Record<string, unknown>) =>
     console.log(JSON.stringify({ ts: new Date().toISOString(), level, msg, ...ctx })),
-  info:  (msg: string, ctx: Record<string, unknown> = {}) => log._line("INFO",  msg, ctx),
-  warn:  (msg: string, ctx: Record<string, unknown> = {}) => log._line("WARN",  msg, ctx),
+  info: (msg: string, ctx: Record<string, unknown> = {}) => log._line("INFO", msg, ctx),
+  warn: (msg: string, ctx: Record<string, unknown> = {}) => log._line("WARN", msg, ctx),
   error: (msg: string, ctx: Record<string, unknown> = {}) => log._line("ERROR", msg, ctx),
 };
 
 // ─── In-memory rate limiter (sliding window, per IP) ─────────────────────────
-const RATE_WINDOW_MS  = 60_000;
-const RATE_MAX_REQS   = 5;
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_REQS = 5;
 const rateStore = new Map<string, number[]>();
 
 function checkRateLimit(ip: string): void {
@@ -109,9 +113,9 @@ const RESPONSE_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          code:   { type: "string" },
+          code: { type: "string" },
           status: { type: "string", enum: ["Assessed", "Insufficient Input", "Not Applicable"] },
-          note:   { type: "string" },
+          note: { type: "string" },
         },
         required: ["code", "status"],
         additionalProperties: false,
@@ -122,17 +126,41 @@ const RESPONSE_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          severity:             { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
-          score:                { type: "number" },
-          category:             { type: "string", enum: ["LLM01","LLM02","LLM03","LLM04","LLM05","LLM06","LLM07","LLM08","LLM09","LLM10"] },
-          title:                { type: "string" },
+          severity: { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+          score: { type: "number" },
+          category: {
+            type: "string",
+            enum: [
+              "LLM01",
+              "LLM02",
+              "LLM03",
+              "LLM04",
+              "LLM05",
+              "LLM06",
+              "LLM07",
+              "LLM08",
+              "LLM09",
+              "LLM10",
+            ],
+          },
+          title: { type: "string" },
           description_security: { type: "string" },
-          description_plain:    { type: "string" },
-          evidence:             { type: "string" },
-          evidence_location:    { type: "string" },
-          remediation:          { type: "string" },
+          description_plain: { type: "string" },
+          evidence: { type: "string" },
+          evidence_location: { type: "string" },
+          remediation: { type: "string" },
         },
-        required: ["severity","score","category","title","description_security","description_plain","evidence","evidence_location","remediation"],
+        required: [
+          "severity",
+          "score",
+          "category",
+          "title",
+          "description_security",
+          "description_plain",
+          "evidence",
+          "evidence_location",
+          "remediation",
+        ],
         additionalProperties: false,
       },
     },
@@ -142,16 +170,24 @@ const RESPONSE_SCHEMA = {
 };
 
 const CATEGORY_NAMES: Record<string, string> = {
-  LLM01:"Prompt Injection", LLM02:"Sensitive Information Disclosure", LLM03:"Supply Chain",
-  LLM04:"Data & Model Poisoning", LLM05:"Improper Output Handling", LLM06:"Excessive Agency",
-  LLM07:"System Prompt Leakage", LLM08:"Vector & Embedding Weaknesses",
-  LLM09:"Misinformation", LLM10:"Unbounded Consumption",
+  LLM01: "Prompt Injection",
+  LLM02: "Sensitive Information Disclosure",
+  LLM03: "Supply Chain",
+  LLM04: "Data & Model Poisoning",
+  LLM05: "Improper Output Handling",
+  LLM06: "Excessive Agency",
+  LLM07: "System Prompt Leakage",
+  LLM08: "Vector & Embedding Weaknesses",
+  LLM09: "Misinformation",
+  LLM10: "Unbounded Consumption",
 };
 
 async function sha256(text: string): Promise<string> {
-  const buf  = new TextEncoder().encode(text);
+  const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 // ─── Prompt injection defence ────────────────────────────────────────────────
@@ -169,16 +205,14 @@ function wrapUntrusted(label: string, content: string): string {
 function buildUserPayload(input: ScanInput): string {
   const parts: string[] = [];
   parts.push(wrapUntrusted("system_prompt", input.system_prompt));
-  if (input.tool_config?.trim())
-    parts.push(wrapUntrusted("tool_config", input.tool_config));
+  if (input.tool_config?.trim()) parts.push(wrapUntrusted("tool_config", input.tool_config));
   if (input.architecture?.trim())
     parts.push(wrapUntrusted("architecture_description", input.architecture));
   if (input.code_files?.length)
-    for (const f of input.code_files)
-      parts.push(wrapUntrusted(`code_file:${f.name}`, f.content));
+    for (const f of input.code_files) parts.push(wrapUntrusted(`code_file:${f.name}`, f.content));
   parts.push(
     `\nAnalyze the UNTRUSTED_DATA artifacts above. ` +
-    `Return JSON with executive_summary (2-4 sentences), coverage (one entry per OWASP category LLM01–LLM10), and findings.`,
+      `Return JSON with executive_summary (2-4 sentences), coverage (one entry per OWASP category LLM01–LLM10), and findings.`,
   );
   return parts.join("\n");
 }
@@ -203,7 +237,7 @@ async function callModel(
       temperature: 0,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user",   content: userPayload },
+        { role: "user", content: userPayload },
       ],
       response_format: {
         type: "json_schema",
@@ -216,8 +250,14 @@ async function callModel(
 
   if (!res.ok) {
     const txt = await res.text();
-    log.error("llm_request_failed", { request_id: requestId, status: res.status, elapsed_ms: elapsed, attempt });
-    if (res.status === 429) throw new Error("Rate limit reached on the AI provider. Try again shortly.");
+    log.error("llm_request_failed", {
+      request_id: requestId,
+      status: res.status,
+      elapsed_ms: elapsed,
+      attempt,
+    });
+    if (res.status === 429)
+      throw new Error("Rate limit reached on the AI provider. Try again shortly.");
     if (res.status === 402) throw new Error("AI credits exhausted. Add credits to continue.");
     throw new Error(`AI gateway error ${res.status}: ${txt.slice(0, 200)}`);
   }
@@ -230,14 +270,19 @@ async function callModel(
     if (!raw) throw new Error("empty response");
     parsed = JSON.parse(raw);
   } catch (parseErr) {
-    log.warn("llm_json_parse_failed", { request_id: requestId, attempt, raw_length: raw.length, error: String(parseErr) });
+    log.warn("llm_json_parse_failed", {
+      request_id: requestId,
+      attempt,
+      raw_length: raw.length,
+      error: String(parseErr),
+    });
     if (attempt < 2) {
       log.info("llm_retrying", { request_id: requestId });
       return callModel(baseUrl, apiKey, model, userPayload, requestId, attempt + 1);
     }
     throw new Error(
       "The model returned malformed output after 2 attempts. " +
-      "If this persists, the selected model may not support structured JSON output.",
+        "If this persists, the selected model may not support structured JSON output.",
     );
   }
 
@@ -252,7 +297,7 @@ export async function scanHandler(req: Request, res: Response) {
 
   // Rate limiting
   const ip =
-    req.headers["cf-connecting-ip"] as string ??
+    (req.headers["cf-connecting-ip"] as string) ??
     (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
     "unknown";
   try {
@@ -287,21 +332,25 @@ export async function scanHandler(req: Request, res: Response) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    log.error("scan_failed", { request_id: requestId, error: "OPENAI_API_KEY is not configured.", elapsed_ms: Date.now() - scanStart });
+    log.error("scan_failed", {
+      request_id: requestId,
+      error: "OPENAI_API_KEY is not configured.",
+      elapsed_ms: Date.now() - scanStart,
+    });
     res.status(500).json({ error: "OPENAI_API_KEY is not configured." });
     return;
   }
   const baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
-  const model   = process.env.SCAN_MODEL ?? "gpt-4o-mini";
+  const model = process.env.SCAN_MODEL ?? "gpt-4o-mini";
 
   log.info("scan_start", {
     request_id: requestId,
     ip,
     inputs: [
       "system_prompt",
-      data.tool_config?.trim()    ? "tool_config"    : null,
-      data.architecture?.trim()   ? "architecture"   : null,
-      data.code_files?.length     ? `${data.code_files.length}_code_files` : null,
+      data.tool_config?.trim() ? "tool_config" : null,
+      data.architecture?.trim() ? "architecture" : null,
+      data.code_files?.length ? `${data.code_files.length}_code_files` : null,
     ].filter(Boolean),
   });
 
@@ -312,7 +361,11 @@ export async function scanHandler(req: Request, res: Response) {
   try {
     parsed = await callModel(baseUrl, apiKey, model, userPayload, requestId);
   } catch (err) {
-    log.error("scan_failed", { request_id: requestId, error: String(err), elapsed_ms: Date.now() - scanStart });
+    log.error("scan_failed", {
+      request_id: requestId,
+      error: String(err),
+      elapsed_ms: Date.now() - scanStart,
+    });
     res.status(500).json({ error: String(err) });
     return;
   }
@@ -320,12 +373,12 @@ export async function scanHandler(req: Request, res: Response) {
   const p = parsed as Record<string, unknown>;
 
   const inputs: string[] = ["system_prompt"];
-  if (data.tool_config?.trim())  inputs.push("tool_config");
+  if (data.tool_config?.trim()) inputs.push("tool_config");
   if (data.architecture?.trim()) inputs.push("architecture");
-  if (data.code_files?.length)   inputs.push(`${data.code_files.length} code file(s)`);
+  if (data.code_files?.length) inputs.push(`${data.code_files.length} code file(s)`);
 
   const SEV_ORDER: Severity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
-  const counts: Record<Severity, number> = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, INFO:0 };
+  const counts: Record<Severity, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
 
   const rawFindings = Array.isArray(p.findings) ? (p.findings as Finding[]) : [];
   const findings: Finding[] = rawFindings.map((f, i) => {
@@ -336,31 +389,42 @@ export async function scanHandler(req: Request, res: Response) {
 
   const covMap = new Map<string, CoverageEntry>();
   const rawCoverage = Array.isArray(p.coverage) ? (p.coverage as CoverageEntry[]) : [];
-  for (const c of rawCoverage)
-    covMap.set(c.code, { ...c, name: CATEGORY_NAMES[c.code] ?? c.code });
+  for (const c of rawCoverage) covMap.set(c.code, { ...c, name: CATEGORY_NAMES[c.code] ?? c.code });
 
-  const coverage: CoverageEntry[] = ["LLM01","LLM02","LLM03","LLM04","LLM05","LLM06","LLM07","LLM08","LLM09","LLM10"].map(
-    (code) => covMap.get(code) ?? { code, name: CATEGORY_NAMES[code], status: "Insufficient Input" },
+  const coverage: CoverageEntry[] = [
+    "LLM01",
+    "LLM02",
+    "LLM03",
+    "LLM04",
+    "LLM05",
+    "LLM06",
+    "LLM07",
+    "LLM08",
+    "LLM09",
+    "LLM10",
+  ].map(
+    (code) =>
+      covMap.get(code) ?? { code, name: CATEGORY_NAMES[code], status: "Insufficient Input" },
   );
 
   const report: ScanReport = {
-    scan_id:           crypto.randomUUID(),
-    timestamp:         new Date().toISOString(),
-    artifact_hash:     artifactHash,
-    inputs_provided:   inputs,
+    scan_id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    artifact_hash: artifactHash,
+    inputs_provided: inputs,
     executive_summary: typeof p.executive_summary === "string" ? p.executive_summary : "",
-    aggregate:         { highest, counts },
+    aggregate: { highest, counts },
     coverage,
     findings,
-    ruleset_version:   "owasp-llm-top10-2025.v1",
+    ruleset_version: "owasp-llm-top10-2025.v1",
   };
 
   log.info("scan_complete", {
-    request_id:   requestId,
-    scan_id:      report.scan_id,
-    findings:     findings.length,
+    request_id: requestId,
+    scan_id: report.scan_id,
+    findings: findings.length,
     highest,
-    elapsed_ms:   Date.now() - scanStart,
+    elapsed_ms: Date.now() - scanStart,
   });
 
   res.json(report);

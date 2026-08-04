@@ -38,16 +38,25 @@ export function OwlSecLogo({
         strokeLinecap="round"
         fill="none"
       />
-      <circle cx="15.2" cy="19.4" r="3.6" className="fill-[var(--background)] stroke-[var(--foreground)]" strokeWidth="1.2" />
-      <circle cx="24.8" cy="19.4" r="3.6" className="fill-[var(--background)] stroke-[var(--foreground)]" strokeWidth="1.2" />
+      <circle
+        cx="15.2"
+        cy="19.4"
+        r="3.6"
+        className="fill-[var(--background)] stroke-[var(--foreground)]"
+        strokeWidth="1.2"
+      />
+      <circle
+        cx="24.8"
+        cy="19.4"
+        r="3.6"
+        className="fill-[var(--background)] stroke-[var(--foreground)]"
+        strokeWidth="1.2"
+      />
       <circle cx="15.2" cy="19.4" r="1.5" className="fill-[var(--primary)]" />
       <circle cx="24.8" cy="19.4" r="1.5" className="fill-[var(--primary)]" />
       <circle cx="15.7" cy="18.9" r="0.5" className="fill-[var(--background)]" />
       <circle cx="25.3" cy="18.9" r="0.5" className="fill-[var(--background)]" />
-      <path
-        d="M20 21.4 L18.6 24.2 L21.4 24.2 Z"
-        className="fill-[var(--primary)]"
-      />
+      <path d="M20 21.4 L18.6 24.2 L21.4 24.2 Z" className="fill-[var(--primary)]" />
       <path
         d="M20 25.4 V31"
         className="stroke-[color-mix(in_oklch,var(--foreground)_35%,transparent)]"
