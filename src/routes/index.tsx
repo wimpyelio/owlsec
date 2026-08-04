@@ -70,7 +70,7 @@ const STAGES = [
   { key: "render", label: "Rendering report" },
 ] as const;
 
-function ScannerPage() {
+export function ScannerPage() {
   const scan = useServerFn(runScan);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [toolConfig, setToolConfig] = useState("");
